@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG Pipeline Simulator</title>
+
+<style>
+
+*{
+box-sizing:border-box;
+}
+
+body{
+margin:0;
+font-family:Inter,system-ui;
+background:linear-gradient(120deg,#0f172a,#020617);
+color:white;
+}
+
+.container{
+max-width:1200px;
+margin:auto;
+padding:40px;
+}
+
+h1{
+text-align:center;
+margin-bottom:40px;
+font-weight:600;
+}
+
+.pipeline{
+display:flex;
+justify-content:center;
+flex-wrap:wrap;
+gap:10px;
+margin-bottom:30px;
+}
+
+.step-pill{
+background:#1e293b;
+padding:8px 14px;
+border-radius:20px;
+font-size:12px;
+opacity:.8;
+}
+
+.card{
+background:#1e293b;
+border-radius:14px;
+padding:22px;
+margin-bottom:22px;
+box-shadow:0 15px 40px rgba(0,0,0,.35);
+}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+textarea,input{
+width:100%;
+padding:12px;
+margin-top:10px;
+border-radius:8px;
+border:none;
+background:#020617;
+color:white;
+font-size:14px;
+}
+
+button{
+margin-top:12px;
+padding:10px 18px;
+border:none;
+border-radius:8px;
+background:#6366f1;
+color:white;
+cursor:pointer;
+font-weight:500;
+}
+
+button:hover{
+background:#4f46e5;
+}
+
+.chunk{
+background:#334155;
+padding:12px;
+border-radius:10px;
+margin-top:10px;
+font-size:14px;
+transition:.25s;
+}
+
+.vector{
+font-family:monospace;
+font-size:12px;
+color:#93c5fd;
+margin-top:6px;
+}
+
+.retrieved{
+background:#065f46;
+}
+
+.result{
+background:#020617;
+padding:16px;
+border-radius:10px;
+margin-top:10px;
+white-space:pre-wrap;
+font-size:14px;
+}
+
+.section-title{
+margin-bottom:6px;
+font-size:15px;
+font-weight:600;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>RAG Pipeline Simulator</h1>
+
+<div class="pipeline">
+
+<div class="step-pill">Dataset</div>
+<div class="step-pill">Chunking</div>
+<div class="step-pill">Embeddings</div>
+<div class="step-pill">Vector DB</div>
+<div class="step-pill">Query Embedding</div>
+<div class="step-pill">Similarity Search</div>
+<div class="step-pill">Top-K Retrieval</div>
+<div class="step-pill">Prompt Augmentation</div>
+<div class="step-pill">LLM Answer</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="section-title">1️⃣ Provide Dataset</div>
+
+<textarea id="dataset" rows="6">
+Blinkit delivers groceries in minutes across Indian cities.
+Swiggy and Zomato dominate food delivery in India.
+Protein rich foods support muscle growth.
+RAG stands for Retrieval Augmented Generation.
+Vector databases store embeddings for semantic search.
+</textarea>
+
+<button onclick="ingest()">Ingest Dataset</button>
+
+<div id="chunks"></div>
+
+</div>
+
+
+<div class="card">
+
+<div class="section-title">2️⃣ Ask a Question</div>
+
+<input id="query" placeholder="Ask something about the dataset">
+
+<button onclick="runRAG()">Run RAG</button>
+
+</div>
+
+
+<div class="grid">
+
+<div class="card">
+
+<div class="section-title">Vector Database</div>
+
+<div id="vectordb"></div>
+
+</div>
+
+<div class="card">
+
+<div class="section-title">Retrieved Chunks (Top-K)</div>
+
+<div id="retrieved"></div>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="section-title">Prompt Sent to LLM</div>
+
+<div id="prompt" class="result"></div>
+
+</div>
+
+
+<div class="card">
+
+<div class="section-title">Generated Answer (Simulated)</div>
+
+<div id="answer" class="result"></div>
+
+</div>
+
+</div>
+
+
+<script>
+
+let vectors=[]
+
+
+function embed(text){
+
+let vec=[]
+
+for(let i=0;i<6;i++){
+vec.push(Math.random())
+}
+
+return vec
+
+}
+
+
+function ingest(){
+
+vectors=[]
+
+let data=document.getElementById("dataset").value
+
+let lines=data.split("\n").filter(x=>x.trim()!="")
+
+let html=""
+
+lines.forEach((line,i)=>{
+
+let emb=embed(line)
+
+vectors.push({
+text:line,
+vector:emb
+})
+
+html+=`
+<div class="chunk">
+<b>Chunk ${i+1}</b><br>
+${line}
+<div class="vector">Embedding: [${emb.map(v=>v.toFixed(2)).join(", ")}]</div>
+</div>
+`
+
+})
+
+document.getElementById("chunks").innerHTML=html
+
+renderDB()
+
+}
+
+
+
+function renderDB(){
+
+let html=""
+
+vectors.forEach(v=>{
+
+html+=`
+<div class="chunk">
+${v.text}
+<div class="vector">[${v.vector.map(x=>x.toFixed(2)).join(", ")}]</div>
+</div>
+`
+
+})
+
+document.getElementById("vectordb").innerHTML=html
+
+}
+
+
+
+function similarity(a,b){
+
+let score=0
+
+for(let i=0;i<a.length;i++){
+score+=1-Math.abs(a[i]-b[i])
+}
+
+return score
+
+}
+
+
+
+function runRAG(){
+
+let query=document.getElementById("query").value
+
+let qvec=embed(query)
+
+let scored=vectors.map(v=>{
+
+return{
+text:v.text,
+score:similarity(qvec,v.vector)
+}
+
+})
+
+scored.sort((a,b)=>b.score-a.score)
+
+let top=scored.slice(0,3)
+
+let html=""
+
+top.forEach(r=>{
+html+=`<div class="chunk retrieved">${r.text}</div>`
+})
+
+document.getElementById("retrieved").innerHTML=html
+
+
+let context=top.map(x=>x.text).join("\n")
+
+let prompt=`Use the following context to answer the question.
+
+Context:
+${context}
+
+Question:
+${query}`
+
+document.getElementById("prompt").innerText=prompt
+
+
+let answer="Based on retrieved context:\n\n"
+
+answer+=context.split(".")[0]+"."
+
+document.getElementById("answer").innerText=answer
+
+}
+
+</script>
+
+</body>
+</html>
