@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG Simulator</title>
+<style>
+
+body{
+font-family: Inter, system-ui;
+background:#0f172a;
+color:white;
+margin:0;
+padding:40px;
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+}
+
+h1{
+text-align:center;
+margin-bottom:30px;
+}
+
+.card{
+background:#1e293b;
+padding:20px;
+border-radius:12px;
+margin-bottom:20px;
+}
+
+textarea,input{
+width:100%;
+padding:12px;
+margin-top:10px;
+border-radius:8px;
+border:none;
+font-size:14px;
+}
+
+button{
+margin-top:12px;
+padding:10px 16px;
+border:none;
+border-radius:8px;
+background:#3b82f6;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#2563eb;
+}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+.step{
+background:#334155;
+padding:15px;
+border-radius:10px;
+margin-top:10px;
+font-size:14px;
+}
+
+.vector{
+font-family:monospace;
+font-size:12px;
+color:#93c5fd;
+}
+
+.result{
+background:#020617;
+padding:15px;
+border-radius:10px;
+margin-top:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>RAG Simulator</h1>
+
+<div class="card">
+
+<h3>1️⃣ Provide Dataset</h3>
+
+<textarea id="dataset" rows="5">
+Blinkit delivers groceries in minutes.
+Swiggy and Zomato dominate food delivery in India.
+Protein rich food helps muscle growth.
+RAG stands for Retrieval Augmented Generation.
+Vector databases store embeddings for semantic search.
+</textarea>
+
+<button onclick="ingest()">Ingest Data</button>
+
+<div id="chunks"></div>
+
+</div>
+
+<div class="card">
+
+<h3>2️⃣ Ask a Question</h3>
+
+<input id="query" placeholder="Ask something about the dataset...">
+
+<button onclick="runRAG()">Run RAG</button>
+
+</div>
+
+<div class="grid">
+
+<div class="card">
+<h3>Vector Database</h3>
+<div id="vectordb"></div>
+</div>
+
+<div class="card">
+<h3>Retrieved Chunks</h3>
+<div id="retrieved"></div>
+</div>
+
+</div>
+
+<div class="card">
+
+<h3>Prompt Sent to LLM</h3>
+
+<div id="prompt" class="result"></div>
+
+</div>
+
+<div class="card">
+
+<h3>LLM Generated Answer (Simulated)</h3>
+
+<div id="answer" class="result"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let chunks=[]
+let vectors=[]
+
+function embed(text){
+
+let vec=[]
+for(let i=0;i<5;i++){
+vec.push((Math.random()*1).toFixed(2))
+}
+return vec
+
+}
+
+function ingest(){
+
+let data=document.getElementById("dataset").value
+
+chunks=data.split("\n").filter(x=>x.trim()!="")
+
+vectors=[]
+
+let chunkHTML=""
+
+chunks.forEach((c,i)=>{
+
+let emb=embed(c)
+vectors.push({text:c,vector:emb})
+
+chunkHTML+=`
+<div class="step">
+<b>Chunk ${i+1}</b><br>
+${c}<br>
+<span class="vector">Embedding: [${emb}]</span>
+</div>
+`
+
+})
+
+document.getElementById("chunks").innerHTML=chunkHTML
+
+renderDB()
+
+}
+
+function renderDB(){
+
+let html=""
+
+vectors.forEach(v=>{
+
+html+=`
+<div class="step">
+${v.text}
+<br>
+<span class="vector">[${v.vector}]</span>
+</div>
+`
+
+})
+
+document.getElementById("vectordb").innerHTML=html
+
+}
+
+function similarity(a,b){
+
+let score=0
+for(let i=0;i<a.length;i++){
+score+=1-Math.abs(a[i]-b[i])
+}
+return score
+
+}
+
+function runRAG(){
+
+let q=document.getElementById("query").value
+
+let qvec=embed(q)
+
+let scored=vectors.map(v=>{
+
+return{
+text:v.text,
+score:similarity(qvec,v.vector)
+}
+
+})
+
+scored.sort((a,b)=>b.score-a.score)
+
+let top=scored.slice(0,3)
+
+let retrievedHTML=""
+
+top.forEach(r=>{
+retrievedHTML+=`<div class="step">${r.text}</div>`
+})
+
+document.getElementById("retrieved").innerHTML=retrievedHTML
+
+let context=top.map(x=>x.text).join("\n")
+
+let prompt=`
+Use the following context to answer the question.
+
+Context:
+${context}
+
+Question:
+${q}
+`
+
+document.getElementById("prompt").innerText=prompt
+
+let answer="Based on the retrieved context, the system believes: "
+
+answer+=context.split(".")[0]
+
+document.getElementById("answer").innerText=answer
+
+}
+
+</script>
+
+</body>
+</html>
